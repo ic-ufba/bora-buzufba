@@ -1,10 +1,10 @@
 # BoraBUZUFBA 🚌
 
-Sistema web moderno para consulta de horários e previsões dos ônibus circulares da UFBA, facilitando a mobilidade dos estudantes no campus.
+Sistema web moderno para consulta de roteiro e horários de saída dos ônibus circulares da UFBA, facilitando a mobilidade dos estudantes no campus.
 
 ## ✨ Visão Geral
 
-O **BoraBUZUFBA** é uma ferramenta desenvolvida para ajudar a comunidade acadêmica da UFBA a se locomover pelo campus com mais facilidade, fornecendo informações sobre os horários e previsões dos ônibus circulares.
+O **BoraBUZUFBA** é uma ferramenta desenvolvida para ajudar a comunidade acadêmica da UFBA a se locomover pelo campus com mais facilidade, centralizando informações sobre as rotas e horários fornecidos sobre os ônibus circulares.
 
 ## 🏢 Sobre o Projeto
 - **Iniciativa**: Projeto independente desenvolvido por aluno para alunos
@@ -17,7 +17,7 @@ O **BoraBUZUFBA** é uma ferramenta desenvolvida para ajudar a comunidade acadê
 ## 🚀 Funcionalidades Principais
 
 ### 🕒 Previsão de Horários
-- Visualização em tempo real dos próximos horários de partida
+- Visualização da previsão dos próximos horários de partida
 - Dados baseados em horários oficiais da UFBA
 - Interface intuitiva e de fácil compreensão
 

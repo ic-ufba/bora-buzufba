@@ -1,6 +1,6 @@
 # BoraBUZUFBA 🚌
 
-Sistema web moderno para consulta de horários e previsões dos ônibus circulares da UFBA, facilitando a mobilidade dos estudantes no campus.
+Sistema web moderno para consulta de roteiro e horários de saída dos ônibus circulares da UFBA, facilitando a mobilidade dos estudantes no campus.
 
 ## ✨ Visão Geral
 

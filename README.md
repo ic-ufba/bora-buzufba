@@ -17,7 +17,7 @@ O **BoraBUZUFBA** é uma ferramenta desenvolvida para ajudar a comunidade acadê
 ## 🚀 Funcionalidades Principais
 
 ### 🕒 Previsão de Horários
-- Visualização em tempo real dos próximos horários de partida
+- Visualização da previsão dos próximos horários de partida
 - Dados baseados em horários oficiais da UFBA
 - Interface intuitiva e de fácil compreensão
 

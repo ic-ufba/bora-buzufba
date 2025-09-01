@@ -17,9 +17,11 @@ import {
   Bus,
   Settings,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  TestTube
 } from 'lucide-react';
 import { lines, stops } from '@/data/busData';
+import { useAlerts } from '@/hooks/useAlerts';
 
 interface AlertConfig {
   id: string;
@@ -65,199 +67,6 @@ const AFTER_DEPARTURE_OPTIONS = [
   { value: 30, label: '30 minutos após início' }
 ];
 
-// Função para solicitar permissão de notificação
-const requestNotificationPermission = async (): Promise<boolean> => {
-  if (!('Notification' in window)) {
-    console.log('Este navegador não suporta notificações');
-    return false;
-  }
-
-  if (Notification.permission === 'granted') {
-    return true;
-  }
-
-  if (Notification.permission !== 'denied') {
-    const permission = await Notification.requestPermission();
-    return permission === 'granted';
-  }
-
-  return false;
-};
-
-// Função para enviar notificação
-const sendNotification = (title: string, options?: NotificationOptions) => {
-  if (Notification.permission === 'granted') {
-    new Notification(title, {
-      icon: '/favicon.ico',
-      badge: '/favicon.ico',
-      ...options
-    });
-  }
-};
-
-// Função para agendar notificações baseadas nos horários
-const scheduleNotifications = (config: AlertConfig) => {
-  // Limpar notificações anteriores para este item
-  const existingKey = `borabuz-notifications-${config.itemType}-${config.itemId}`;
-  const existingTimeouts = JSON.parse(localStorage.getItem(existingKey) || '[]');
-  existingTimeouts.forEach((timeoutId: number) => clearTimeout(timeoutId));
-
-  if (!config.enabled) {
-    localStorage.removeItem(existingKey);
-    return;
-  }
-
-  const timeouts: number[] = [];
-  const now = new Date();
-  const today = now.toDateString();
-
-  config.recurringTimes.forEach(time => {
-    config.advanceTimes.forEach(advanceMinutes => {
-      const [hours, minutes] = time.split(':').map(Number);
-      const notificationTime = new Date();
-      notificationTime.setHours(hours, minutes - advanceMinutes, 0, 0);
-
-      // Se o horário já passou hoje, agendar para amanhã
-      if (notificationTime <= now) {
-        notificationTime.setDate(notificationTime.getDate() + 1);
-      }
-
-      const delay = notificationTime.getTime() - now.getTime();
-      
-      if (delay > 0) {
-        const timeoutId = window.setTimeout(() => {
-          const notificationMessage = generateNotificationMessage(config, time);
-          sendNotification(notificationMessage.title, {
-            body: notificationMessage.body,
-            tag: `borabuz-${config.itemType}-${config.itemId}-${time}`,
-            requireInteraction: true
-          });
-        }, delay);
-
-        timeouts.push(timeoutId);
-      }
-    });
-
-    config.afterDepartureTimes.forEach(afterDepartureMinutes => {
-      const [hours, minutes] = time.split(':').map(Number);
-      const notificationTime = new Date();
-      notificationTime.setHours(hours, minutes, 0, 0);
-
-      // Se o horário já passou hoje, agendar para amanhã
-      if (notificationTime <= now) {
-        notificationTime.setDate(notificationTime.getDate() + 1);
-      }
-
-      const delay = notificationTime.getTime() - now.getTime() + afterDepartureMinutes * 60 * 1000;
-      
-      if (delay > 0) {
-        const timeoutId = window.setTimeout(() => {
-          const notificationMessage = generateNotificationMessage(config, time, afterDepartureMinutes);
-          sendNotification(notificationMessage.title, {
-            body: notificationMessage.body,
-            tag: `borabuz-${config.itemType}-${config.itemId}-${time}`,
-            requireInteraction: true
-          });
-        }, delay);
-
-        timeouts.push(timeoutId);
-      }
-    });
-  });
-
-  localStorage.setItem(existingKey, JSON.stringify(timeouts));
-};
-
-// Função para calcular número de paradas até o ponto alvo
-const calculateStopsToTarget = (lineId: string, targetStopId: string, direction: 'ida' | 'volta'): number => {
-  const line = lines.find(l => l.id === lineId);
-  if (!line) return 0;
-
-  const route = direction === 'ida' ? line.routeIda : line.routeVolta;
-  const targetIndex = route.indexOf(targetStopId);
-  
-  if (targetIndex === -1) {
-    // Se não encontrou na direção especificada, verificar se passa na outra direção
-    const otherRoute = direction === 'ida' ? line.routeVolta : line.routeIda;
-    const otherIndex = otherRoute.indexOf(targetStopId);
-    
-    if (otherIndex !== -1) {
-      // Conta todas as paradas da primeira direção + paradas até o ponto na segunda direção
-      return route.length + otherIndex;
-    }
-    return 0;
-  }
-  
-  return targetIndex;
-};
-
-// Função para gerar mensagem de notificação com contagem de paradas
-const generateNotificationMessage = (config: AlertConfig, time: string, afterMinutes?: number): { title: string, body: string } => {
-  if (config.itemType === 'line') {
-    const title = ` Linha ${config.itemName}`;
-    const body = afterMinutes 
-      ? `Saída iniciada há ${afterMinutes} minutos (${time})`
-      : `Saída agora às ${time}`;
-    return { title, body };
-  } else {
-    // Para pontos, verificar direções selecionadas
-    const title = ` Ponto ${config.itemName}`;
-    let body = '';
-    
-    // Obter linhas que passam no ponto
-    const linesAtStop = lines.filter(line => 
-      line.routeIda.includes(config.itemId) || line.routeVolta.includes(config.itemId)
-    );
-    
-    // Se tem direções específicas selecionadas, filtrar por elas
-    if (config.stopDirections && config.stopDirections.length > 0) {
-      linesAtStop.forEach(line => {
-        const passesInIda = line.routeIda.includes(config.itemId);
-        const passesInVolta = line.routeVolta.includes(config.itemId);
-        
-        config.stopDirections!.forEach(direction => {
-          if ((direction === 'ida' && passesInIda) || (direction === 'volta' && passesInVolta)) {
-            const stopsCount = calculateStopsToTarget(line.id, config.itemId, direction);
-            const directionName = direction === 'ida' ? 'Ida' : 'Volta';
-            
-            if (afterMinutes) {
-              body += `${line.name} (${directionName}) iniciou há ${afterMinutes}min - ${stopsCount} paradas até você. `;
-            } else {
-              body += `${line.name} (${directionName}) - ${stopsCount} paradas até você. `;
-            }
-          }
-        });
-      });
-    } else {
-      // Se não tem direções específicas, mostrar todas
-      linesAtStop.forEach(line => {
-        const passesInIda = line.routeIda.includes(config.itemId);
-        const passesInVolta = line.routeVolta.includes(config.itemId);
-        
-        if (passesInIda) {
-          const stopsCount = calculateStopsToTarget(line.id, config.itemId, 'ida');
-          if (afterMinutes) {
-            body += `${line.name} (Ida) iniciou há ${afterMinutes}min - ${stopsCount} paradas até você. `;
-          } else {
-            body += `${line.name} (Ida) - ${stopsCount} paradas até você. `;
-          }
-        }
-        
-        if (passesInVolta) {
-          const stopsCount = calculateStopsToTarget(line.id, config.itemId, 'volta');
-          if (afterMinutes) {
-            body += `${line.name} (Volta) iniciou há ${afterMinutes}min - ${stopsCount} paradas até você. `;
-          } else {
-            body += `${line.name} (Volta) - ${stopsCount} paradas até você. `;
-          }
-        }
-      });
-    }
-    
-    return { title, body: body.trim() || `Horário: ${time}` };
-  }
-};
-
 export const AlertsModal: React.FC<AlertsModalProps> = ({
   open,
   onOpenChange,
@@ -278,6 +87,16 @@ export const AlertsModal: React.FC<AlertsModalProps> = ({
   }>>([]);
   const [alertAllLines, setAlertAllLines] = useState(false);
   const [stopDirections, setStopDirections] = useState<('ida' | 'volta')[]>([]);
+
+  // Use the new alerts hook
+  const { 
+    isSupported, 
+    permission, 
+    requestPermission, 
+    scheduleNotifications, 
+    cancelNotifications, 
+    sendTestNotification 
+  } = useAlerts();
 
   // Carregar configurações ao abrir modal
   useEffect(() => {
@@ -319,15 +138,6 @@ export const AlertsModal: React.FC<AlertsModalProps> = ({
   const saveAlertConfig = async () => {
     if (!itemType || !itemId || !itemName) return;
 
-    // Solicitar permissão de notificação se alerta estiver ativado
-    if (alertEnabled) {
-      const hasPermission = await requestNotificationPermission();
-      if (!hasPermission) {
-        alert('Para receber alertas, você precisa permitir notificações no seu navegador.');
-        return;
-      }
-    }
-
     const alertKey = itemType === 'line' && direction 
       ? `borabuz-alert-${itemType}-${itemId}-${direction}`
       : `borabuz-alert-${itemType}-${itemId}`;
@@ -348,12 +158,29 @@ export const AlertsModal: React.FC<AlertsModalProps> = ({
 
     localStorage.setItem(alertKey, JSON.stringify(config));
 
-    // Agendar notificações se ativo
+    // Use the new notification system
     if (alertEnabled && recurringTimes.length > 0) {
-      scheduleNotifications(config);
+      const success = await scheduleNotifications(config);
+      if (!success) {
+        alert('Erro ao agendar notificações. Verifique se as permissões estão habilitadas.');
+        return;
+      }
+    } else if (!alertEnabled) {
+      await cancelNotifications(itemType, itemId);
     }
 
     onOpenChange(false);
+  };
+
+  const handleTestNotification = async () => {
+    const success = await sendTestNotification(
+      'Teste de Notificação',
+      `Notificação de teste para ${itemName}`
+    );
+    
+    if (!success) {
+      alert('Erro ao enviar notificação de teste. Verifique se as permissões estão habilitadas.');
+    }
   };
 
   const toggleAdvanceTime = (time: number) => {
@@ -487,6 +314,11 @@ export const AlertsModal: React.FC<AlertsModalProps> = ({
             <p className="text-sm text-muted-foreground">
               Selecione um item favorito para configurar alertas
             </p>
+            {!isSupported && (
+              <p className="text-xs text-red-500 mt-2">
+                Notificações não suportadas neste navegador
+              </p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -530,17 +362,34 @@ export const AlertsModal: React.FC<AlertsModalProps> = ({
                 {getAlertDescription()}
               </p>
 
+              {!isSupported && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <p className="text-xs text-red-600 dark:text-red-400">
+                    ⚠️ Notificações não suportadas neste navegador
+                  </p>
+                </div>
+              )}
+
+              {permission === 'denied' && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <p className="text-xs text-red-600 dark:text-red-400">
+                    ⚠️ Permissão de notificação negada. Habilite nas configurações do navegador.
+                  </p>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <Label htmlFor="alert-enabled" className="text-sm">Ativar alertas</Label>
                 <Switch
                   id="alert-enabled"
                   checked={alertEnabled}
                   onCheckedChange={handleToggleAlert}
+                  disabled={!isSupported}
                 />
               </div>
 
               {alertEnabled && (
-                <div className="mt-4 pt-4 border-t">
+                <div className="mt-4 pt-4 border-t space-y-2">
                   <Button 
                     variant="outline" 
                     className="w-full justify-between" 
@@ -548,6 +397,16 @@ export const AlertsModal: React.FC<AlertsModalProps> = ({
                   >
                     <span>Configurar alertas</span>
                     <ChevronRight className="w-4 h-4" />
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-center gap-2" 
+                    onClick={handleTestNotification}
+                    size="sm"
+                  >
+                    <TestTube className="w-4 h-4" />
+                    <span>Testar notificação</span>
                   </Button>
                 </div>
               )}

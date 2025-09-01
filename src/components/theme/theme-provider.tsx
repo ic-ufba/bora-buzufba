@@ -14,7 +14,7 @@ type ThemeProviderState = {
 }
 
 const initialState: ThemeProviderState = {
-  theme: "system",
+  theme: "light",
   setTheme: () => null,
 }
 
@@ -22,13 +22,24 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
 
 export function ThemeProvider({
   children,
-  defaultTheme = "system",
+  defaultTheme = "light",
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
-  )
+  const [theme, setTheme] = useState<Theme>(() => {
+    // Verificar se já existe uma preferência salva
+    const savedTheme = localStorage.getItem(storageKey) as Theme;
+    
+    // Se não existe preferência salva, usar o tema padrão (light)
+    if (!savedTheme) {
+      console.log('Primeira vez do usuário - usando tema claro como padrão');
+      return defaultTheme;
+    }
+    
+    // Se existe preferência salva, usar ela
+    console.log('Preferência de tema encontrada:', savedTheme);
+    return savedTheme;
+  })
 
   useEffect(() => {
     const root = window.document.documentElement
@@ -50,9 +61,15 @@ export function ThemeProvider({
 
   const value = {
     theme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme)
-      setTheme(theme)
+    setTheme: (newTheme: Theme) => {
+      console.log('Alterando tema para:', newTheme);
+      console.log('Salvando preferência do usuário no localStorage');
+      
+      // Salvar a preferência do usuário
+      localStorage.setItem(storageKey, newTheme)
+      
+      // Atualizar o estado
+      setTheme(newTheme)
     },
   }
 

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BoraBuzufba - Sistema de Transporte Universitário</title>
+    <meta name="description" content="Sistema de acompanhamento de rotas dos ônibus universitário da UFBA" />
+    <meta name="Eduarda Almeida" content="IdeaLab.ic" />
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Registrar Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registrado com sucesso:', registration);
+            })
+            .catch((registrationError) => {
+              console.log('Falha no registro do SW:', registrationError);
+            });
+        });
+      }
+    </script>
+  </body>
+</html>
